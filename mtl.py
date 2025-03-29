@@ -121,7 +121,7 @@ class Attention(nn.Module):
 """Attention Layer computes attention scores for each time step in the sequence with a linear layer. It creates a weighted sum of LSTM outputs. We use a softmax to convert raw scores into probabilities.
 """
 
-""" Shared Attention Layer""""
+""" Shared Attention Layer"""
 
 class EmotionClassifier(nn.Module):
     def __init__(self, shared_attention, lstm_hidden_size=256, num_classes=6):
@@ -169,23 +169,24 @@ class EmotionTextClassificationDataset(Dataset): # https://medium.com/@khang.pha
 
 class SentimentDataset(Dataset):
     def __init__(self, dataframe, tokenizer, max_len):
-        self.dataframe = dataframe  # ✅ Ensure correct attribute name
+        self.dataframe = dataframe.dropna(subset=['sentiment'])
         self.tokenizer = tokenizer
         self.max_len = max_len
-
-        # ✅ Define label mapping inside __init__
         self.label_mapping = {"negative": 0, "neutral": 1, "positive": 2}
 
     def __len__(self):
         return len(self.dataframe)
 
     def __getitem__(self, index):
-        text = str(self.dataframe.iloc[index]["text"])  # ✅ Corrected attribute name
+        text = str(self.dataframe.iloc[index]["text"])
         sentiment = self.dataframe.iloc[index]["sentiment"]
-
-        # ✅ Use `self.label_mapping`
+        
+        # Additional safety check
+        if pd.isna(sentiment):
+            raise ValueError(f"Found NaN sentiment at index {index} after filtering")
+            
         label = self.label_mapping[sentiment]
-
+        
         encoding = self.tokenizer(
             text,
             truncation=True,
@@ -194,17 +195,10 @@ class SentimentDataset(Dataset):
             return_tensors="pt"
         )
 
-         # ✅ Print Tokenized Output
-        # if index < 3:  # Print for the first 3 samples only
-        #     print(f"\n🔹 Sample {index}:")
-        #     print(f"Text: {text}")
-        #     print(f"Tokenized Input IDs: {encoding['input_ids']}")
-        #     print(f"Attention Mask: {encoding['attention_mask']}")
-
         return {
             "input_ids": encoding["input_ids"].squeeze(0),
             "attention_mask": encoding["attention_mask"].squeeze(0),
-            "label": torch.tensor(label, dtype=torch.long)  # ✅ Convert label to tensor
+            "label": torch.tensor(label, dtype=torch.long)
         }
 
 
@@ -214,7 +208,7 @@ class SentimentDataset(Dataset):
 bert_model_name = 'distilbert-base-uncased'
 MAX_LEN = 48 # https://medium.com/@khang.pham.exxact/text-classification-with-bert-7afaacc5e49b
 BATCH_SIZE = 16
-NUM_EPOCHS = 1
+NUM_EPOCHS = 10
 EMOTION_NUM_CLASSES = 6
 SENTIMENT_NUM_CLASSES = 3
 LEARNING_RATE = 2e-5
@@ -271,7 +265,7 @@ def mtl_train(bilstm_model, emotion_model, sentiment_model, bert_model,
           opt_bilstm, opt_emotion, opt_sentiment,
           sched_bilstm, sched_emotion, sched_sentiment,
           criterion, device, lambda_emotion=1.0):
-
+    
     bilstm_model.train()
     emotion_model.train()
     sentiment_model.train()
@@ -395,8 +389,8 @@ def mtl_evaluate(bilstm_model, emotion_model, sentiment_model, bert_model,
     return emotion_accuracy, sentiment_accuracy
 
 """## Training Process"""
-
-from transformers import AdamW, get_linear_schedule_with_warmup
+from torch.optim import AdamW
+from transformers import get_linear_schedule_with_warmup
 opt_bilstm = torch.optim.Adam(bilstm_model.parameters(), lr=LEARNING_RATE)
 opt_emotion = torch.optim.Adam(emotion_model.parameters(), lr=LEARNING_RATE)
 opt_sentiment = torch.optim.Adam(sentiment_model.parameters(), lr=LEARNING_RATE)
@@ -427,9 +421,7 @@ for epoch in range(NUM_EPOCHS):
     print(f"Validation Accuracy - Sentiment: {sentiment_acc:.4f}")
 
 """# Model Saving"""
-
-# from google.colab import drive
-# drive.mount('/content/drive')
+import os
 os.makedirs("results", exist_ok=True)
 
 EMOTION_MODEL = "results/emotion_model_reduced.pth"
@@ -441,11 +433,11 @@ torch.save(bilstm_model.state_dict(), BILSTM_MODEL)
 
 """# Evaluation"""
 
-# Replace this line:
-# With:
+
 emotion_acc, sentiment_acc = mtl_evaluate(
     bilstm_model, emotion_model, sentiment_model, bert_model,
-    emotion_test_dataloader, sentiment_test_dataloader, device
+    emotion_labelstest_dataloader, sentiment_test_dataloader, device
 )
+
 print(f"Test Accuracy - Emotion: {emotion_acc:.4f}")
 print(f"Test Accuracy - Sentiment: {sentiment_acc:.4f}")
