@@ -212,7 +212,7 @@ NUM_EPOCHS = 10
 EMOTION_NUM_CLASSES = 6
 SENTIMENT_NUM_CLASSES = 3
 LEARNING_RATE = 2e-5
-LAMBDA_EMOTION = 1 # Equal Contribution to Loss , it's configurable later
+LAMBDA_EMOTION = 0.75 # Equal Contribution to Loss , it's configurable later
 LSTM_HIDDEN_SIZE = 256
 
 from transformers import DistilBertTokenizer, DistilBertModel
