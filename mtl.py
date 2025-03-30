@@ -212,7 +212,7 @@ NUM_EPOCHS = 10
 EMOTION_NUM_CLASSES = 6
 SENTIMENT_NUM_CLASSES = 3
 LEARNING_RATE = 2e-5
-LAMBDA_EMOTION = 0.75 # Equal Contribution to Loss , it's configurable later
+LAMBDA_EMOTION = 0.25 # Equal Contribution to Loss , it's configurable later
 LSTM_HIDDEN_SIZE = 256
 
 from transformers import DistilBertTokenizer, DistilBertModel
@@ -419,6 +419,15 @@ for epoch in range(NUM_EPOCHS):
 
     print(f"Validation Accuracy - Emotion: {emotion_acc:.4f}")
     print(f"Validation Accuracy - Sentiment: {sentiment_acc:.4f}")
+    
+    emotion_acc, sentiment_acc = mtl_evaluate(
+        bilstm_model, emotion_model, sentiment_model, bert_model,
+        emotion_train_dataloader, sentiment_train_dataloader, device
+    )
+    
+
+    print(f"Train Accuracy - Emotion: {emotion_acc:.4f}")
+    print(f"Train Accuracy - Sentiment: {sentiment_acc:.4f}")
 
 """# Model Saving"""
 import os
